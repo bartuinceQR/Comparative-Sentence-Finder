@@ -25,7 +25,7 @@ def isInteger(s):
     except ValueError:
         return False
 
-SENTENCEOFFSET = 4
+SENTENCEOFFSET = 3
 SKIPWORD = "<S>"
 KEYWORDS = ["daha", "en", "gibi", "kadar","göre", "hem"]
 KEYSUFFIX = 'Abl'
@@ -145,7 +145,7 @@ if __name__ == "__main__":
 
 		with open(writedir_convert + "featurelist.txt", "w", encoding="utf-8") as f:
 			f.writelines((json.dumps(feat) + "\n") for feat in features)
-	elif (args.mode == "train_alt"):
+	elif (args.mode == "train"):
 		word_id_list = {}
 		docsize = 0
 		
@@ -239,7 +239,7 @@ if __name__ == "__main__":
 
 		with open(writedir_convert + "word_id_list.txt", "w", encoding="utf-8") as f:
 			f.write(json.dumps(word_id_list))
-	elif (args.mode == 'test_alt'):
+	elif (args.mode == 'test'):
 		with open(writedir_convert + "svm_results.txt", "rb") as f:
 			svmdata = pickle.loads(f.read())
 		with open(writedir_convert + "word_id_list.txt", 'r') as f:
