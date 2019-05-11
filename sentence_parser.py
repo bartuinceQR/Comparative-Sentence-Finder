@@ -25,8 +25,10 @@ def isInteger(s):
     except ValueError:
         return False
 
-SENTENCEOFFSET = 3
+SENTENCEOFFSET = 4
 SKIPWORD = "<S>"
+KEYWORDS = ["daha", "en", "gibi", "kadar","göre", "hem"]
+KEYSUFFIX = 'Abl'
 
 if __name__ == "__main__":
 	args = parser.parse_args()
@@ -39,10 +41,6 @@ if __name__ == "__main__":
 	writedir_api = curpath + "/apiresults/train/"
 	writedir_api_test = curpath + "/apiresults/test/"
 	writedir_convert = curpath + "/convertresults/"
-
-
-	keywords = ["daha", "en", "gibi", "kadar","göre", "hem"]
-	keysuffix = 'Abl'
 
 	if (args.mode == "read"):
 		fileoffset = 0
@@ -111,8 +109,8 @@ if __name__ == "__main__":
 				jsondata_filter = [word for word in jsondata if (word["relation"] != "DERIV" and word["relation"] != "PUNCTUATION")]
 				for idx,elem in enumerate(jsondata_filter):
 					#check if the word is a keyword, or contains -dan,-den
-					hasKeyword = (elem["word"] in keywords) or (elem["root"] in keywords)
-					hasSuffix = re.search(keysuffix, elem["nounsuffixes"])
+					hasKeyword = (elem["word"] in KEYWORDS) or (elem["root"] in KEYWORDS)
+					hasSuffix = re.search(KEYSUFFIX, elem["nounsuffixes"])
 
 					print(idx)
 					if (hasKeyword or hasSuffix):
@@ -126,7 +124,7 @@ if __name__ == "__main__":
 						if (hasKeyword):
 							elem["pos1"] = elem["word"] + elem["pos1"]
 						elif (hasSuffix):
-							elem["pos1"] = keysuffix + elem["pos1"]
+							elem["pos1"] = KEYSUFFIX + elem["pos1"]
 
 						sequence = [chosen_elem["pos1"] for chosen_elem in jsondata_filter[min_elem:max_elem]]
 
@@ -251,6 +249,24 @@ if __name__ == "__main__":
 		#read the api files from this folder
 		apifiles = [os.path.join(writedir_api_test,f) for f in os.listdir(writedir_api_test)]
 		testsize = len(apifiles)
+
+		keywordcorrect = {}
+		for kw in KEYWORDS:
+			keywordcorrect[kw] = {
+				"compcorrect" : 0,
+				"noncompcorrect" : 0,
+				"compcount" : 0,
+				"noncompcount" : 0,
+				"total" : 0
+			}
+		keywordcorrect["-dan"] = {
+				"compcorrect" : 0,
+				"noncompcorrect" : 0,
+				"compcount" : 0,
+				"noncompcount" : 0,
+				"total" : 0
+		}
+
 		compcorrect = 0
 		noncompcorrect = 0
 		compcount = 0
@@ -270,10 +286,13 @@ if __name__ == "__main__":
 				jsondata_filter = [word for word in jsondata if (word["relation"] != "DERIV" and word["relation"] != "PUNCTUATION")]
 				for idx,elem in enumerate(jsondata_filter):
 					#check if the word is a keyword, or contains -dan,-den
-					hasKeyword = (elem["word"] in keywords) or (elem["root"] in keywords)
-					hasSuffix = re.search(keysuffix, elem["nounsuffixes"])
+					hasKeyword = (elem["word"] in KEYWORDS) or (elem["root"] in KEYWORDS)
+					hasSuffix = re.search(KEYSUFFIX, elem["nounsuffixes"])
 
 					if (hasKeyword or hasSuffix):
+
+						keyval = ""
+
 						min_elem = max(idx-SENTENCEOFFSET,0)
 						max_elem = min(idx+SENTENCEOFFSET,len(jsondata_filter)-1)+1
 
@@ -283,8 +302,11 @@ if __name__ == "__main__":
 						#change the POS with a special POS
 						if (hasKeyword):
 							elem["pos1"] = elem["word"] + elem["pos1"]
+							keyval = elem["root"]
 						elif (hasSuffix):
-							elem["pos1"] = keysuffix + elem["pos1"]
+							elem["pos1"] = KEYSUFFIX + elem["pos1"]
+							keyval = "-dan"
+						keywordcorrect[keyval]["total"] += 1
 
 						sequence = [chosen_elem["pos1"] for chosen_elem in jsondata_filter[min_elem:max_elem]]
 
@@ -294,7 +316,7 @@ if __name__ == "__main__":
 						for i in range(0,frontappend):
 							sequence.append("<S>")
 
-						feature1 = {"sequence" : sequence, "class": sentenceclass["class"]}
+						feature1 = {"sequence" : sequence, "class": sentenceclass["class"], "keyvalue" : keyval}
 
 						features.append(feature1)
 						featcount += 1
@@ -303,6 +325,7 @@ if __name__ == "__main__":
 					numseq = []
 					dseq = data["sequence"]
 					dclass = data["class"]
+					keyval = data["keyvalue"]
 					for word in dseq:
 						if word == SKIPWORD:
 							numseq.append(0)
@@ -318,18 +341,22 @@ if __name__ == "__main__":
 
 					if (dclass == "comparative"):
 						compcount += 1
+						keywordcorrect[keyval]["compcount"] += 1
 					elif (dclass == "non-comparative"):
 						noncompcount += 1
+						keywordcorrect[keyval]["noncompcount"] += 1
 
 					print(res[0])
 					if (res[0] == 1):
-						res_str = "comparative"	
+						res_str = "comparative"
 						if (dclass == res_str):
 							compcorrect += 1
+							keywordcorrect[keyval]["compcorrect"] += 1
 					elif (res[0] == -1):
 						res_str = "non-comparative"
 						if (dclass == res_str):
 							noncompcorrect += 1
+							keywordcorrect[keyval]["noncompcorrect"] += 1
 
 					print("Actual : " + dclass + ", Predicted: " + res_str)
 
@@ -337,6 +364,24 @@ if __name__ == "__main__":
 		print("Correct Comparatives / Total: " + str(compcorrect) + " / " + str(compcount))
 		print("Correct Non-comparatives / Total: " + str(noncompcorrect) + " / " + str(noncompcount))
 		print("Accuracy: " + str( (compcorrect + noncompcorrect) / featcount))
+		print("\n")
+
+		for kw in keywordcorrect.keys():
+			kwdict = keywordcorrect[kw]
+			tot = kwdict["total"]
+			com = kwdict["compcount"]
+			ncom = kwdict["noncompcount"]
+			comcor = kwdict["compcorrect"]
+			ncomcor = kwdict["noncompcorrect"]
+			print("Total sentences with " + kw + ": " + str(tot))
+			print("Correct Comparatives / Total with " + kw + ": " + str(comcor) + "/" + str(com))
+			print("Correct Non-comparatives / Total with " + kw + ": " + str(ncomcor) + "/" + str(ncom))
+			if (tot == 0):
+				print("Accuracy with " + kw + ": None")
+			else:
+				print("Accuracy with " + kw + ": " + str((comcor + ncomcor) / tot))
+			print("\n")
+			
 		#print(svmdata.coef_)
 		#print(svmdata.support_vectors_[0])
 
