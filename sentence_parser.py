@@ -42,6 +42,13 @@ if __name__ == "__main__":
 	writedir_api_test = curpath + "/apiresults/test/"
 	writedir_convert = curpath + "/convertresults/"
 
+	if not (os.path.exists(writedir_api)):
+		os.makedirs(writedir_api)
+	if not (os.path.exists(writedir_api_test)):
+		os.makedirs(writedir_api_test)
+	if not (os.path.exists(writedir_convert)):
+		os.makedirs(writedir_convert)
+
 	if (args.mode == "read"):
 		fileoffset = 0
 
@@ -52,9 +59,6 @@ if __name__ == "__main__":
 		caller = pipeline_caller.PipelineCaller()
 
 		sentencelist = []
-
-		if not (os.path.exists(writedir_api)):
-			 os.makedirs(writedir_api)
 
 		if (addfiles):
 			fileoffset = len(os.listdir(writedir_api))
